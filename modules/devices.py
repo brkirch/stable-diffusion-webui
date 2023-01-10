@@ -2,6 +2,7 @@ import sys, os, shlex
 import contextlib
 import torch
 from modules import errors
+from modules.sd_hijack_utils import ConditionalFunc
 from packaging import version
 
 
@@ -106,53 +107,36 @@ def autocast(disable=False):
     return torch.autocast("cuda")
 
 
-# MPS workaround for https://github.com/pytorch/pytorch/issues/79383
-orig_tensor_to = torch.Tensor.to
-def tensor_to_fix(self, *args, **kwargs):
-    if self.device.type != 'mps' and \
-       ((len(args) > 0 and isinstance(args[0], torch.device) and args[0].type == 'mps') or \
-       (isinstance(kwargs.get('device'), torch.device) and kwargs['device'].type == 'mps')):
-        self = self.contiguous()
-    return orig_tensor_to(self, *args, **kwargs)
-
-
-# MPS workaround for https://github.com/pytorch/pytorch/issues/80800 
-orig_layer_norm = torch.nn.functional.layer_norm
-def layer_norm_fix(*args, **kwargs):
-    if len(args) > 0 and isinstance(args[0], torch.Tensor) and args[0].device.type == 'mps':
-        args = list(args)
-        args[0] = args[0].contiguous()
-    return orig_layer_norm(*args, **kwargs)
-
-
-# MPS workaround for https://github.com/pytorch/pytorch/issues/90532
-orig_tensor_numpy = torch.Tensor.numpy
-def numpy_fix(self, *args, **kwargs):
-    if self.requires_grad:
-        self = self.detach()
-    return orig_tensor_numpy(self, *args, **kwargs)
-
-
 # MPS workaround for https://github.com/pytorch/pytorch/issues/89784
-orig_cumsum = torch.cumsum
-orig_Tensor_cumsum = torch.Tensor.cumsum
+cumsum_needs_int_fix = True
 def cumsum_fix(input, cumsum_func, *args, **kwargs):
     if input.device.type == 'mps':
         output_dtype = kwargs.get('dtype', input.dtype)
-        if any(output_dtype == broken_dtype for broken_dtype in [torch.bool, torch.int8, torch.int16, torch.int64]):
-            return cumsum_func(input.cpu(), *args, **kwargs).to(input.device)
-    return cumsum_func(input, *args, **kwargs)
+        if output_dtype != torch.int64 and output_dtype != torch.bool and not cumsum_needs_int_fix:
+            return cumsum_func(input, *args, **kwargs)
+        elif output_dtype == torch.int64:
+            cumsum_func(input.cpu(), *args, **kwargs).to(input.device)
+        elif any(output_dtype == broken_dtype for broken_dtype in [torch.bool, torch.int8, torch.int16]):
+            return cumsum_func(input.to(torch.int32), *args, **kwargs).to(torch.int64)
 
 
 if has_mps():
     if version.parse(torch.__version__) < version.parse("1.13"):
         # PyTorch 1.13 doesn't need these fixes but unfortunately is slower and has regressions that prevent training from working
-        torch.Tensor.to = tensor_to_fix
-        torch.nn.functional.layer_norm = layer_norm_fix
-        torch.Tensor.numpy = numpy_fix
+
+        # MPS workaround for https://github.com/pytorch/pytorch/issues/79383
+        torch.Tensor.to = ConditionalFunc(torch.Tensor.to, lambda orig_func, self, *args, **kwargs: orig_func(self.contiguous(), *args, **kwargs),
+                                                          lambda _, self, *args, **kwargs: self.device.type != 'mps' and (args and isinstance(args[0], torch.device) and args[0].type == 'mps' or isinstance(kwargs.get('device'), torch.device) and kwargs['device'].type == 'mps'))
+        # MPS workaround for https://github.com/pytorch/pytorch/issues/80800 
+        torch.nn.functional.layer_norm = ConditionalFunc(torch.nn.functional.layer_norm, lambda orig_func, *args, **kwargs: orig_func(*([args[0].contiguous()] + list(args[1:])), **kwargs),
+                                                                                        lambda _, *args, **kwargs: args and isinstance(args[0], torch.Tensor) and args[0].device.type == 'mps')
+        # MPS workaround for https://github.com/pytorch/pytorch/issues/90532
+        torch.Tensor.numpy = ConditionalFunc(torch.Tensor.numpy, lambda orig_func, self, *args, **kwargs: orig_func(self.detach(), *args, **kwargs), lambda _, self, *args, **kwargs: self.requires_grad)
     elif version.parse(torch.__version__) > version.parse("1.13.1"):
-        if not torch.Tensor([1,2]).to(torch.device("mps")).equal(torch.Tensor([1,1]).to(torch.device("mps")).cumsum(0, dtype=torch.int16)):
-            torch.cumsum = lambda input, *args, **kwargs: ( cumsum_fix(input, orig_cumsum, *args, **kwargs) )
-            torch.Tensor.cumsum = lambda self, *args, **kwargs: ( cumsum_fix(self, orig_Tensor_cumsum, *args, **kwargs) )
-        orig_narrow = torch.narrow
-        torch.narrow = lambda *args, **kwargs: ( orig_narrow(*args, **kwargs).clone() )
+        cumsum_needs_int_fix = not torch.Tensor([1,2]).to(torch.device("mps")).equal(torch.Tensor([1,1]).to(torch.device("mps")).cumsum(0, dtype=torch.int16))
+        cumsum_needs_fix = not torch.BoolTensor([True,True]).to(device=torch.device("mps"), dtype=torch.int64).equal(torch.BoolTensor([True,False]).to(torch.device("mps")).cumsum(0))
+        cumsum_fix_func = lambda orig_func, input, *args, **kwargs: ( cumsum_fix(input, orig_func, *args, **kwargs) )
+        if cumsum_needs_fix or cumsum_needs_int_fix:
+            torch.cumsum = ConditionalFunc(torch.cumsum, cumsum_fix_func, None)
+            torch.Tensor.cumsum = ConditionalFunc(torch.Tensor.cumsum, cumsum_fix_func, None)
+        torch.narrow = ConditionalFunc(torch.narrow, lambda orig_func, *args, **kwargs: orig_func(*args, **kwargs).clone(), None)
