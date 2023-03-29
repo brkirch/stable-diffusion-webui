@@ -279,7 +279,7 @@ def sub_quad_attention(q, k, v, q_chunk_size=1024, kv_chunk_size=None, kv_chunk_
     qk_matmul_size_bytes = batch_x_heads * bytes_per_token * q_tokens * k_tokens
 
     if chunk_threshold is None:
-        chunk_threshold_bytes = int(get_available_vram() * 0.9) if q.device.type == 'mps' else int(get_available_vram() * 0.7)
+        chunk_threshold_bytes = max(int(get_available_vram() * 0.9), 1073741824) if q.device.type == 'mps' else int(get_available_vram() * 0.7)
     elif chunk_threshold == 0:
         chunk_threshold_bytes = None
     else:
