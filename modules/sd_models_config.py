@@ -3,7 +3,7 @@ import os
 
 import torch
 
-from modules import shared, paths, sd_disable_initialization
+from modules import shared, paths, sd_disable_initialization, devices
 
 sd_configs_path = shared.sd_configs_path
 sd_repo_configs_path = os.path.join(paths.paths['Stable Diffusion'], "configs", "stable-diffusion")
@@ -69,17 +69,22 @@ def guess_model_config_from_state_dict(sd, filename):
     diffusion_model_input = sd.get('model.diffusion_model.input_blocks.0.0.weight', None)
     sd2_variations_weight = sd.get('embedder.model.ln_final.weight', None)
 
+    devices.attn_needs_upcast = False
+
     if sd.get('depth_model.model.pretrained.act_postprocess3.0.project.0.bias', None) is not None:
         return config_depth_model
     elif sd2_variations_weight is not None and sd2_variations_weight.shape[0] == 768:
+        devices.attn_needs_upcast = True
         return config_unclip
     elif sd2_variations_weight is not None and sd2_variations_weight.shape[0] == 1024:
+        devices.attn_needs_upcast = True
         return config_unopenclip
 
     if sd2_cond_proj_weight is not None and sd2_cond_proj_weight.shape[1] == 1024:
         if diffusion_model_input.shape[1] == 9:
             return config_sd2_inpainting
         elif is_using_v_parameterization_for_sd2(sd):
+            devices.attn_needs_upcast = True
             return config_sd2v
         else:
             return config_sd2
@@ -100,11 +105,13 @@ def find_checkpoint_config(state_dict, info):
     if info is None:
         return guess_model_config_from_state_dict(state_dict, "")
 
+    guessed_config = guess_model_config_from_state_dict(state_dict, info.filename)
+
     config = find_checkpoint_config_near_filename(info)
     if config is not None:
         return config
 
-    return guess_model_config_from_state_dict(state_dict, info.filename)
+    return guessed_config
 
 
 def find_checkpoint_config_near_filename(info):

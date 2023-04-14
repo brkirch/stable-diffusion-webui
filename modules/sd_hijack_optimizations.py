@@ -53,10 +53,10 @@ def split_cross_attention_forward_v1(self, x, context=None, mask=None):
     del q_in, k_in, v_in
 
     dtype = q.dtype
-    if shared.opts.upcast_attn:
+    if shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled":
         q, k, v = q.float(), k.float(), v.float()
 
-    with devices.without_autocast(disable=not shared.opts.upcast_attn):
+    with devices.without_autocast(disable=not (shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled" == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled" == "Enabled")):
         r1 = torch.zeros(q.shape[0], q.shape[1], v.shape[2], device=q.device, dtype=q.dtype)
         for i in range(0, q.shape[0], 2):
             end = i + 2
@@ -90,10 +90,10 @@ def split_cross_attention_forward(self, x, context=None, mask=None):
     v_in = self.to_v(context_v)
 
     dtype = q_in.dtype
-    if shared.opts.upcast_attn:
+    if shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled":
         q_in, k_in, v_in = q_in.float(), k_in.float(), v_in if v_in.device.type == 'mps' else v_in.float()
 
-    with devices.without_autocast(disable=not shared.opts.upcast_attn):
+    with devices.without_autocast(disable=not (shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled" == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled" == "Enabled")):
         k_in = k_in * self.scale
     
         del context, x
@@ -223,10 +223,10 @@ def split_cross_attention_forward_invokeAI(self, x, context=None, mask=None):
     del context, context_k, context_v, x
 
     dtype = q.dtype
-    if shared.opts.upcast_attn:
+    if shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled":
         q, k, v = q.float(), k.float(), v if v.device.type == 'mps' else v.float()
 
-    with devices.without_autocast(disable=not shared.opts.upcast_attn):
+    with devices.without_autocast(disable=not (shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled" == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled" == "Enabled")):
         k = k * self.scale
     
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
@@ -260,7 +260,7 @@ def sub_quad_attention_forward(self, x, context=None, mask=None):
         q, k, v = q.contiguous(), k.contiguous(), v.contiguous()
 
     dtype = q.dtype
-    if shared.opts.upcast_attn:
+    if shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled":
         q, k = q.float(), k.float()
 
     x = sub_quad_attention(q, k, v, q_chunk_size=shared.cmd_opts.sub_quad_q_chunk_size, kv_chunk_size=shared.cmd_opts.sub_quad_kv_chunk_size, chunk_threshold=shared.cmd_opts.sub_quad_chunk_threshold, use_checkpoint=self.training)
@@ -343,7 +343,7 @@ def xformers_attention_forward(self, x, context=None, mask=None):
     del q_in, k_in, v_in
 
     dtype = q.dtype
-    if shared.opts.upcast_attn:
+    if shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled":
         q, k, v = q.float(), k.float(), v.float()
 
     out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None, op=get_xformers_flash_attention_op(q, k, v))
@@ -378,7 +378,7 @@ def scaled_dot_product_attention_forward(self, x, context=None, mask=None):
     del q_in, k_in, v_in
 
     dtype = q.dtype
-    if shared.opts.upcast_attn:
+    if shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled":
         q, k, v = q.float(), k.float(), v.float()
 
     # the output of sdp = (batch, num_heads, seq_len, head_dim)
@@ -467,7 +467,7 @@ def xformers_attnblock_forward(self, x):
         b, c, h, w = q.shape
         q, k, v = map(lambda t: rearrange(t, 'b c h w -> b (h w) c'), (q, k, v))
         dtype = q.dtype
-        if shared.opts.upcast_attn:
+        if shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled":
             q, k = q.float(), k.float()
         q = q.contiguous()
         k = k.contiguous()
@@ -489,7 +489,7 @@ def sdp_attnblock_forward(self, x):
     b, c, h, w = q.shape
     q, k, v = map(lambda t: rearrange(t, 'b c h w -> b (h w) c'), (q, k, v))
     dtype = q.dtype
-    if shared.opts.upcast_attn:
+    if shared.opts.upcast_attn == "Automatic" and devices.attn_needs_upcast or shared.opts.upcast_attn == "Enabled":
         q, k = q.float(), k.float()
     q = q.contiguous()
     k = k.contiguous()

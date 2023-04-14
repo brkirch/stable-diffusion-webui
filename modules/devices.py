@@ -81,6 +81,7 @@ dtype = torch.float16
 dtype_vae = torch.float16
 dtype_unet = torch.float16
 unet_needs_upcast = False
+attn_needs_upcast = False
 
 
 def cond_cast_unet(input):
