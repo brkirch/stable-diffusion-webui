@@ -4,16 +4,24 @@
 # Please modify webui-user.sh to change these instead of this file #
 ####################################################################
 
+export install_dir="$HOME"
+export COMMANDLINE_ARGS="--skip-torch-cuda-test --skip-install --no-download-sd-model --no-half-vae --upcast-sampling --opt-sub-quad-attention --use-cpu interrogate"
+export TORCH_COMMAND="pip install torch==2.0.1 torchvision==0.15.2"
+export K_DIFFUSION_REPO="https://github.com/brkirch/k-diffusion.git"
+export K_DIFFUSION_COMMIT_HASH="c41588ae74e1b51e9f8663106d9843389bf02729"
+export PYTORCH_ENABLE_MPS_FALLBACK=1
+
+# Put transformers cache with the other models
+export TRANSFORMERS_CACHE="$PWD/models/transformers"
+
+# Add git and python to PATH
+export PATH="$PWD/python/3.10.10/bin:$PWD/git/bin:$PATH"
+export GIT_EXEC_PATH="$PWD/git/libexec/git-core"
+export GIT_TEMPLATE_DIR="$PWD/git/share/git-core/templates"
+
 if [[ -x "$(command -v python3.10)" ]]
 then
     python_cmd="python3.10"
 fi
-
-export install_dir="$HOME"
-export COMMANDLINE_ARGS="--skip-torch-cuda-test --upcast-sampling --no-half-vae --use-cpu interrogate"
-export TORCH_COMMAND="pip install torch torchvision"
-export K_DIFFUSION_REPO="https://github.com/brkirch/k-diffusion.git"
-export K_DIFFUSION_COMMIT_HASH="51c9778f269cedb55a4d88c79c0246d35bdadb71"
-export PYTORCH_ENABLE_MPS_FALLBACK=1
 
 ####################################################################
