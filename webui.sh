@@ -4,11 +4,30 @@
 # change the variables in webui-user.sh instead #
 #################################################
 
+# Pretty print
+delimiter="################################################################"
+
 # If run from macOS, load defaults from webui-macos-env.sh
 if [[ "$OSTYPE" == "darwin"* ]]; then
     if [[ -f webui-macos-env.sh ]]
         then
         source ./webui-macos-env.sh
+    fi
+    if [[ ! -f .install_commit ]]
+        then
+        printf "\n%s\n" "${delimiter}"
+        printf "\e[1m\e[31mERROR:       This should be installed via an installer from\n"
+        printf             "       https://github.com/brkirch/stable-diffusion-webui/releases\e[0m"
+        printf "\n%s\n" "${delimiter}"
+        exit 1
+    fi
+    if [[ "$(git rev-parse HEAD)" != "$(<.install_commit)" ]]
+        then
+        printf "\n%s\n" "${delimiter}"
+        printf "\e[1m\e[31mERROR: Commit hash has changed, please update with an installer from\n"
+        printf             "        https://github.com/brkirch/stable-diffusion-webui/releases\e[0m"
+        printf "\n%s\n" "${delimiter}"
+        exit 1
     fi
 fi
 
@@ -72,9 +91,6 @@ export ERROR_REPORTING=FALSE
 
 # Do not reinstall existing pip packages on Debian/Ubuntu
 export PIP_IGNORE_INSTALLED=0
-
-# Pretty print
-delimiter="################################################################"
 
 printf "\n%s\n" "${delimiter}"
 printf "\e[1m\e[32mInstall script for stable-diffusion + Web UI\n"
