@@ -13,9 +13,9 @@ export PYTORCH_ENABLE_MPS_FALLBACK=1
 export TRANSFORMERS_CACHE="$PWD/models/transformers"
 
 # Add git and python to PATH
-export PATH="$PWD/python/3.10.10/bin:$PWD/git/bin:$PATH"
-export GIT_EXEC_PATH="$PWD/git/libexec/git-core"
-export GIT_TEMPLATE_DIR="$PWD/git/share/git-core/templates"
+export PATH="$PWD/bin-deps/python/3.10.13/bin:$PWD/bin-deps/git/bin:$PATH"
+export GIT_EXEC_PATH="$PWD/bin-deps/git/libexec/git-core"
+export GIT_TEMPLATE_DIR="$PWD/bin-deps/git/share/git-core/templates"
 
 if [[ -x "$(command -v python3.10)" ]]
 then
