@@ -14,7 +14,8 @@ class ExtraNetworksPageCheckpoints(ui_extra_networks.ExtraNetworksPage):
         shared.refresh_checkpoints()
 
     def create_item(self, name, index=None, enable_filter=True):
-        checkpoint: sd_models.CheckpointInfo = sd_models.checkpoint_aliases.get(name)
+        aliases = sd_models.checkpoint_aliases_prev if sd_models.checkpoint_aliases_prev is not None else sd_models.checkpoint_aliases
+        checkpoint: sd_models.CheckpointInfo = aliases.get(name)
         path, ext = os.path.splitext(checkpoint.filename)
         return {
             "name": checkpoint.name_for_extra,
@@ -30,7 +31,8 @@ class ExtraNetworksPageCheckpoints(ui_extra_networks.ExtraNetworksPage):
         }
 
     def list_items(self):
-        for index, name in enumerate(sd_models.checkpoints_list):
+        names = sd_models.checkpoints_list_prev if sd_models.checkpoints_list_prev is not None else sd_models.checkpoints_list.copy()
+        for index, name in enumerate(names):
             yield self.create_item(name, index)
 
     def allowed_directories_for_previews(self):
