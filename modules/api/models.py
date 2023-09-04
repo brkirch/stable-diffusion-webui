@@ -1,4 +1,5 @@
 import inspect
+
 from pydantic import BaseModel, Field, create_model
 from typing import Any, Optional
 from typing_extensions import Literal
@@ -49,9 +50,11 @@ class PydanticModelGenerator:
         additional_fields = None,
     ):
         def field_type_generator(k, v):
-            # field_type = str if not overrides.get(k) else overrides[k]["type"]
-            # print(k, v.annotation, v.default)
             field_type = v.annotation
+
+            if field_type == 'Image':
+                # images are sent as base64 strings via API
+                field_type = 'str'
 
             return Optional[field_type]
 
@@ -62,7 +65,6 @@ class PydanticModelGenerator:
                 parameters = {**parameters, **inspect.signature(classes.__init__).parameters}
             return parameters
 
-
         self._model_name = model_name
         self._class_data = merge_class_params(class_instance)
 
@@ -71,7 +73,7 @@ class PydanticModelGenerator:
                 field=underscore(k),
                 field_alias=k,
                 field_type=field_type_generator(k, v),
-                field_value=v.default
+                field_value=None if isinstance(v.default, property) else v.default
             )
             for (k,v) in self._class_data.items() if k not in API_NOT_ALLOWED
         ]
@@ -207,11 +209,10 @@ class PreprocessResponse(BaseModel):
 fields = {}
 for key, metadata in opts.data_labels.items():
     value = opts.data.get(key)
-    optType = opts.typemap.get(type(metadata.default), type(value))
+    optType = opts.typemap.get(type(metadata.default), type(metadata.default)) if metadata.default else Any
 
-    if (metadata is not None):
-        fields.update({key: (Optional[optType], Field(
-            default=metadata.default ,description=metadata.label))})
+    if metadata is not None:
+        fields.update({key: (Optional[optType], Field(default=metadata.default, description=metadata.label))})
     else:
         fields.update({key: (Optional[optType], Field())})
 
@@ -223,8 +224,9 @@ for key in _options:
     if(_options[key].dest != 'help'):
         flag = _options[key]
         _type = str
-        if _options[key].default is not None: _type = type(_options[key].default)
-        flags.update({flag.dest: (_type,Field(default=flag.default, description=flag.help))})
+        if _options[key].default is not None:
+            _type = type(_options[key].default)
+        flags.update({flag.dest: (_type, Field(default=flag.default, description=flag.help))})
 
 FlagsModel = create_model("Flags", **flags)
 
@@ -240,6 +242,9 @@ class UpscalerItem(BaseModel):
     model_url: Optional[str] = Field(title="URL")
     scale: Optional[float] = Field(title="Scale")
 
+class LatentUpscalerModeItem(BaseModel):
+    name: str = Field(title="Name")
+
 class SDModelItem(BaseModel):
     title: str = Field(title="Title")
     model_name: str = Field(title="Model Name")
@@ -247,6 +252,10 @@ class SDModelItem(BaseModel):
     sha256: Optional[str] = Field(title="sha256 hash")
     filename: str = Field(title="Filename")
     config: Optional[str] = Field(title="Config file")
+
+class SDVaeItem(BaseModel):
+    model_name: str = Field(title="Model Name")
+    filename: str = Field(title="Filename")
 
 class HypernetworkItem(BaseModel):
     name: str = Field(title="Name")
@@ -266,10 +275,6 @@ class PromptStyleItem(BaseModel):
     prompt: Optional[str] = Field(title="Prompt")
     negative_prompt: Optional[str] = Field(title="Negative Prompt")
 
-class ArtistItem(BaseModel):
-    name: str = Field(title="Name")
-    score: float = Field(title="Score")
-    category: str = Field(title="Category")
 
 class EmbeddingItem(BaseModel):
     step: Optional[int] = Field(title="Step", description="The number of steps that were used to train this embedding, if available")
@@ -286,6 +291,23 @@ class MemoryResponse(BaseModel):
     ram: dict = Field(title="RAM", description="System memory stats")
     cuda: dict = Field(title="CUDA", description="nVidia CUDA memory stats")
 
+
 class ScriptsList(BaseModel):
-    txt2img: list = Field(default=None,title="Txt2img", description="Titles of scripts (txt2img)")
-    img2img: list = Field(default=None,title="Img2img", description="Titles of scripts (img2img)")
+    txt2img: list = Field(default=None, title="Txt2img", description="Titles of scripts (txt2img)")
+    img2img: list = Field(default=None, title="Img2img", description="Titles of scripts (img2img)")
+
+
+class ScriptArg(BaseModel):
+    label: str = Field(default=None, title="Label", description="Name of the argument in UI")
+    value: Optional[Any] = Field(default=None, title="Value", description="Default value of the argument")
+    minimum: Optional[Any] = Field(default=None, title="Minimum", description="Minimum allowed value for the argumentin UI")
+    maximum: Optional[Any] = Field(default=None, title="Minimum", description="Maximum allowed value for the argumentin UI")
+    step: Optional[Any] = Field(default=None, title="Minimum", description="Step for changing value of the argumentin UI")
+    choices: Optional[List[str]] = Field(default=None, title="Choices", description="Possible values for the argument")
+
+
+class ScriptInfo(BaseModel):
+    name: str = Field(default=None, title="Name", description="Script name")
+    is_alwayson: bool = Field(default=None, title="IsAlwayson", description="Flag specifying whether this script is an alwayson script")
+    is_img2img: bool = Field(default=None, title="IsImg2img", description="Flag specifying whether this script is an img2img script")
+    args: List[ScriptArg] = Field(title="Arguments", description="List of script's arguments")

@@ -5,10 +5,8 @@
 ####################################################################
 
 export install_dir="$HOME"
-export COMMANDLINE_ARGS="--skip-torch-cuda-test --skip-install --no-download-sd-model --no-half-vae --upcast-sampling --opt-sub-quad-attention --use-cpu interrogate"
+export COMMANDLINE_ARGS="--skip-torch-cuda-test --skip-install --no-download-sd-model --no-half-vae --upcast-sampling --use-cpu interrogate"
 export TORCH_COMMAND="pip install torch==2.0.1 torchvision==0.15.2"
-export K_DIFFUSION_REPO="https://github.com/brkirch/k-diffusion.git"
-export K_DIFFUSION_COMMIT_HASH="c41588ae74e1b51e9f8663106d9843389bf02729"
 export PYTORCH_ENABLE_MPS_FALLBACK=1
 
 # Put transformers cache with the other models

@@ -1,12 +1,12 @@
 import gradio as gr
-from modules import scripts_postprocessing, scripts, shared, gfpgan_model, codeformer_model, ui_common, postprocessing, call_queue
+from modules import scripts, shared, ui_common, postprocessing, call_queue
 import modules.generation_parameters_copypaste as parameters_copypaste
 
 
 def create_ui():
     tab_index = gr.State(value=0)
 
-    with gr.Row().style(equal_height=False, variant='compact'):
+    with gr.Row(equal_height=False, variant='compact'):
         with gr.Column(variant='compact'):
             with gr.Tabs(elem_id="mode_extras"):
                 with gr.TabItem('Single Image', id="single_image", elem_id="extras_single_tab") as tab_single:
